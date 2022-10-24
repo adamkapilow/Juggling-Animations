@@ -8,6 +8,7 @@ DecimalNumber.set_default(color=BLACK)
 
 
 def get_loop_angle_and_center(loop, polygon):
+    #comment to test git
     start = polygon.get_vertices()[loop.throw_index]
     center_to_start = start - polygon.get_center()
     loop_center = start + (loop.radius/np.linalg.norm(center_to_start))*(center_to_start)
