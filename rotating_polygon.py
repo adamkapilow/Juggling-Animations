@@ -1,33 +1,38 @@
 from manim import *
 import numpy as np
 
+#uncomment to set default colors to black, on a white background
+""" 
 Text.set_default(color=BLACK)
 Arrow.set_default(color=BLACK)
 NumberLine.set_default(color=BLACK)
-DecimalNumber.set_default(color=BLACK)
+DecimalNumber.set_default(color=BLACK) """
 
 
-def get_loop_angle_and_center(loop, polygon):
-    #comment to test git
-    start = polygon.get_vertices()[loop.throw_index]
+def get_loop(throw_index, polygon, loop_radius):
+    angle_remaining = 0.1*TAU
+    start = polygon.get_vertices()[throw_index]
     center_to_start = start - polygon.get_center()
-    loop_center = start + (loop.radius/np.linalg.norm(center_to_start))*(center_to_start)
+    center = start + (loop_radius/np.linalg.norm(center_to_start))*(center_to_start)
     start_angle = angle_of_vector(center_to_start) - PI
-    return start_angle, loop_center
+    end_angle = start_angle + TAU - angle_remaining
+    def circle_param(t, radius=loop_radius):
+        return center + radius*np.array([np.cos(t), np.sin(t), 0])
+    loop = ParametricFunction(circle_param, t_range=[start_angle, end_angle])
+    altitude = start - circle_param(end_angle)
+    tip_displacement = np.array([altitude[1], -altitude[0], 0])/np.sqrt(3)
+    vertex1 = circle_param(end_angle) + tip_displacement
+    vertex2 = circle_param(end_angle) - tip_displacement
+    tip = Polygon(start, vertex1, vertex2, fill_opacity=1, color=loop.color)
+    return VGroup(loop, tip)
 
-def loop_updater(loop, polygon):
-    angle_remaining = 0.01
-    start_angle, center = get_loop_angle_and_center(loop, polygon)
-    new_loop = Arc(radius = loop.radius, start_angle = start_angle, angle = TAU-angle_remaining, arc_center = center)
-    loop.become(new_loop)
-    arrow_end = new_loop.point_from_proportion(0)
-    arrow_start = new_loop.point_from_proportion(.9)
-    loop.arrow.put_start_and_end_on(arrow_start, arrow_end)
-
-def arc_updater(arc, polygon):
-    start = polygon.get_vertices()[arc.throw_index]
-    end = polygon.get_vertices()[arc.catch_index]
-    arc.become(CurvedArrow(start, end, angle=-TAU/4))
+def get_arc(throw_index, catch_index, polygon):
+    start = polygon.get_vertices()[throw_index]
+    end = polygon.get_vertices()[catch_index]
+    arc = CurvedArrow(start, end, angle=-TAU/4)
+    arc.throw_index = throw_index
+    arc.catch_index = catch_index
+    return CurvedArrow(start, end, angle=-TAU/4)
 
 
 def rotation_scene(scene : Scene, N : int, polygon_radius=1.5, label_values = None, fixed_labels=True, draw_arcs=False, loop_radius=0.5):
@@ -41,11 +46,12 @@ def rotation_scene(scene : Scene, N : int, polygon_radius=1.5, label_values = No
     scene.add(scene.polygon)
     def get_moving_position(i):
         shift_dir = scene.polygon.get_vertices()[i] - scene.polygon.get_center()
-        moving_position = scene.polygon.get_center() + 1.3*shift_dir
+        moving_position = scene.polygon.get_center() + 1.5*shift_dir
         return moving_position
     def label_updater(label):
         label.move_to(get_moving_position(label.index))
 
+    
     scene.moving_labels = []
     if fixed_labels:
         scene.fixed_labels = []
@@ -55,24 +61,12 @@ def rotation_scene(scene : Scene, N : int, polygon_radius=1.5, label_values = No
             throw_index = i
             catch_index = (i + label_values[i]) % N
             if throw_index != catch_index:
-                arc = CurvedArrow(LEFT, RIGHT)
-                arc.throw_index = throw_index
-                arc.catch_index = catch_index
-                arc_updater(arc, scene.polygon)
-                arc.add_updater(lambda arc: arc_updater(arc, scene.polygon))
+                arc = get_arc(throw_index, catch_index, scene.polygon)
                 arcs.append(arc)
-                scene.add(arc)
+                scene.polygon.add(arc)
             else:
-                loop = Arc()
-                loop.throw_index = i
-                loop.catch_index = i
-                loop.radius = loop_radius
-                loop.arrow = Arrow()
-                loop_updater(loop, scene.polygon)
-                loop.add_updater(lambda loop: loop_updater(loop, scene.polygon))
-                arcs.append(arc)
-                scene.add(loop)
-                scene.add(loop.arrow)
+                loop = get_loop(i, scene.polygon, 0.5)
+                scene.polygon.add(loop)
         scene.arcs = arcs
     for i in range(N):
         moving_label = Text(str(label_values[i]))
@@ -87,6 +81,7 @@ def rotation_scene(scene : Scene, N : int, polygon_radius=1.5, label_values = No
             fixed_label = Text(str(i), color=ORANGE).move_to(label_position)
             scene.fixed_labels.append(fixed_label)
             scene.add(fixed_label)
+    scene.add(scene.polygon)
             
 def draw_siteswap(scene, throw_heights, polygon_radius=1.5, loop_radius=0.5):
     rotation_scene(scene, len(throw_heights), polygon_radius=polygon_radius, 
