@@ -153,26 +153,15 @@ class even_prechac_anim(Scene):
         throw_heights = [5, 3, 1, 3]
         N = len(throw_heights)
         prechac_positions = [0]
-        endpoints = [-10, 10]
+        endpoints = [-14, 10]
         lines, selves_to_change = siteswap_line(self, throw_heights, endpoints, prechac_positions)
         global_position, period_tracker = build_updaters(self, throw_heights, prechac_positions, endpoints, lines, selves_to_change)
 
-        self.play(global_position.animate.set_value(N/2 - 1), run_time=3)
         self.wait(2)
-        self.play(global_position.animate.set_value(N/2 + 1), run_time=3)
-        self.wait(2)
-        self.play(period_tracker.animate.set_value(-N), run_time = 3)
-        self.wait(2)
-        anims = []
-        anims.append(period_tracker.animate.set_value(0))
-        anims.append(global_position.animate.set_value(0))
-        anim_group = AnimationGroup(*anims, run_time=3)
-        self.play(anim_group)
-        self.wait(3)
         self.play(global_position.animate.set_value(N/2), run_time=3)
         self.wait(2)
         self.play(period_tracker.animate.set_value(-N), run_time = 3)
-        self.wait(2)
+        self.wait(3)
         
 """
 A Scene that uses the previous methods to animate the Prechac transformation on an odd period pattern, 423. 
