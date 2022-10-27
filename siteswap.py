@@ -1,15 +1,28 @@
 from manim import *
 import numpy as np
 
-SCENE_HEIGHT = 8
-epsilon = 10**-3
+"""
+This file contains methods around building an animation showing that a 
+juggling pattern of period N can be visualized on an N hour polygonal clock.
+"""
 
+"""
+A parametrization for a cylinder of radius 1.
+"""
 def cylinderParam(u, v):
     return cylindrical_to_cartesian(1, u, v)
 
+"""
+Takes in a points cylindrical coordinates, and outputs its
+Cartesian coordinates as a numpy array.
+"""
 def cylindrical_to_cartesian(r, u, v):
     return np.array([r*np.cos(u), r*np.sin(u), v])
 
+"""
+Takes in a point's Cartesian coordinates, and outputs its cyclindrical coordinates
+as a numpy array. We choose a singularity along the negative y axis. 
+"""
 def cartesian_to_cylindrical(x, y, z):
     if(x > 0):
         u = np.arctan(y/x)
@@ -23,8 +36,13 @@ def cartesian_to_cylindrical(x, y, z):
     r = np.sqrt(x**2 + y**2)
     return np.array([r, u, z])
 
+"""
+A homomotopy visualizing the map (x, y, z) --> (1+y)e^{-2*pi*ix} where horizontal lines wrap around a circle of radius 1 + the y value. 
+Inputs:
+x, y, z, t - floats indicating the spatial and temporal coordinates of the homotopy
+Axes -- optional Axes object. If supplied the homotopy will be performed in its coordinates.
+"""
 def wrap_homotopy(x : float, y : float, z : float, t : float, Axes=None):
-    #TODO: Improve performance of this, sucks to compute the arctan at all times, would be nice to just compute it once.
     if Axes != None:
         axes_coordinates = Axes.p2c(np.array([x,y,z]))
         cylindrical_start = cartesian_to_cylindrical(*axes_coordinates, 0)
@@ -40,31 +58,18 @@ def wrap_homotopy(x : float, y : float, z : float, t : float, Axes=None):
         array_homotopy = cylindrical_to_cartesian(*((1-t)*cylindrical_start + t*cylindrical_end))
         return tuple(array_homotopy)
 
-def simple_homotopy(x,y,z,t):
-    end = cylindrical_to_cartesian(1, -2*np.pi*(x+1)/3, x)
-    start = np.array([x,y,z])
-    return tuple((1-t)*start + t*end)
-
-def throw_func(P, Q):
-    return bezier(np.array([P, (P + Q)/2 + (Q[0] - P[0])*UP, Q]))
+"""
+Returns a quadratic Bezier curve connecting two points on the x-axis of a given 
+Axes object. 
+"""
+def throw_func(i, j, axes):
+    midpoint = axes.c2p((i + j)/2, (j - i))
+    return bezier(np.array([axes.c2p(i, 0), midpoint, axes.c2p(j, 0)]))
     #return lambda t: np.array([t, -(1/3)*(t-P[0])*(t-Q[0]), 0])
 
-def make_polygonal_prism(n, axes=None):
-    #TODO: Change to also work in axes coordinates
-    vertices = []
-    for i in range(2*n):
-        coords = cylindrical_to_cartesian(1, 2*np.pi*i/n, SCENE_HEIGHT*(i//n))
-        if axes != None:
-            vertices.append(axes.coords_to_point(*coords))
-        else:
-            vertices.append(coords)
-    faces = [list(range(n)), list(range(n, 2*n))]
-    for i in range(n):
-        new_face = [i, i + n, n + ((i + 1) % n), (i + 1) % n,]
-        faces.append(new_face)
-    return Polyhedron(vertices, faces)
 
-#An animation that applies a given homotopy to the center of a mobject
+#An animation that applies a given homotopy to the center of a mobject,
+#changing its position but not its shape or size.
 class center_only_homotopy(Animation):
     def __init__(self, mobject, homotopy=None, **kwargs):
         self.homotopy = homotopy
@@ -77,65 +82,42 @@ class center_only_homotopy(Animation):
         self.mobject.move_to(self.function_at_time_t(t)(self.start))
 
 
-
+"""
+A Scene showing that a juggling pattern of period 3 can be recorded 
+on a 3 hour triangular clock.
+"""
 class siteswap(Scene):
     def construct(self):
-        axes = Axes(x_range=(-6,10,1), axis_config={"include_numbers": True, "include_ticks":True})
-        #prism not synced to axes
-        #triangluar_prism = make_polygonal_prism(3).set_color(RED)
-        #prism synced to axes
-        # triangluar_prism = make_polygonal_prism(3, axes).set_color(RED)
-        # self.add(triangluar_prism)
-        #cylinder = Surface(cylinderParam, u_range=[0, TAU], v_range=[0,SCENE_HEIGHT])
-        #self.add(cylinder)
+        config.frame_height = 12
+        x_start = 1
+        x_end = 9
+        axes = Axes(x_range=(-2,x_end,1), axis_config={"include_numbers": True, "include_ticks":True})
         P = [1, 0]
         Q = [np.cos(TAU/3), np.sin(TAU/3)]
         R = [np.cos(-TAU/3), np.sin(-TAU/3)]
-        self.add(Polygon(axes.c2p(*P), axes.c2p(*Q), axes.c2p(*R), color=RED))
-        TickPoint = axes.coords_to_point(1, 0, 0)
-        '''
-        for t in np.linspace(0, 1, 10):
-            space_coords = wrap_homotopy(*TickPoint, t, axes)
-            axes_coords = axes.point_to_coords(space_coords)
-            print(axes_coords)
-        '''
-        #self.set_camera_orientation(theta=0 * DEGREES, phi=15 * DEGREES, zoom=0.5)
-        self.add(axes)
-        throw_heights = [5, 3, 1]
+        self.add(Polygon(axes.c2p(*P), axes.c2p(*Q), axes.c2p(*R), color='#785EF0'))
         wrapping_objects = []
         center_wrapping_objects = []
-        center_wrapping_objects.append(Dot(axes.c2p(1,0,0)))
-        center_wrapping_objects.append(Dot(axes.c2p(4,0,0), color=PINK))
-        center_wrapping_objects.append(Dot(axes.c2p(6,0,0), color=BLUE))
-        #center_wrapping_objects.append(Dot(axes.c2p(-2,0,0)))
-        #center_wrapping_objects.append(Dot(axes.c2p(1,0,0), color=PINK))
-        #center_wrapping_objects.append(Dot(axes.c2p(3,0,0), color=BLUE))
-        """ center_wrapping_objects.append(Dot([-2,0,0]))
-        center_wrapping_objects.append(Dot([1,0,0], color=PINK))
-        center_wrapping_objects.append(Dot([3,0,0], color=BLUE)) """
-        wrapping_objects.append(ParametricFunction(throw_func(axes.c2p(1,0), axes.c2p(6, 0)), t_range=[0, 1-epsilon]))
-        wrapping_objects.append(ParametricFunction(throw_func(axes.c2p(4,0), axes.c2p(9, 0)), t_range=[epsilon, 1]))
-        """ line1 = ParametricFunction(lambda t: axes.c2p(t,0), t_range=[0,3], color=PINK)
-        line2 = ParametricFunction(lambda t: axes.c2p(t,0), t_range=[3,5], color=BLUE)
-        line3 = ParametricFunction(lambda t: axes.c2p(t,0), t_range=[3,6], color=BLUE)
-        line4 = ParametricFunction(lambda t: axes.c2p(t,0), t_range=[6,8], color=PINK)
-        wrapping_objects.append(line1)
-        wrapping_objects.append(line2)
-        wrapping_objects.append(line3)
-        wrapping_objects.append(line4) """
+        self.add(axes)
+        throw_heights = [5, 3, 1]
+        colors = ['#648FFF', '#DC267F', '#FFB000']
+        for i in range(1, x_end+1):
+            color = colors[i%3]
+            throw_height = throw_heights[(i - 1) % 3]
+            throw = ParametricFunction(throw_func(i, i + throw_height, axes), t_range=[0, 1], color=color)
+            wrapping_objects.append(throw)
+            dot = Dot(color=color).move_to(axes.c2p(i, 0))
+            square = Square(0.5, color=color).move_to(axes.c2p(i + throw_height, 0))
+            center_wrapping_objects.append(dot)
+            center_wrapping_objects.append(square)
         homotopies = []
         for ob in wrapping_objects:
             self.add(ob)
-            #homotopies.append(Homotopy(mobject=ob, homotopy= lambda x, y, z, t : wrap_homotopy(x, y, z, t, axes)))
-            homotopies.append(Homotopy(mobject=ob, homotopy= lambda x, y, z, t : wrap_homotopy(x,y,z,t, Axes=axes), rate_func=smooth, run_time=6))
+            homotopies.append(Homotopy(mobject=ob, homotopy= lambda x, y, z, t : wrap_homotopy(x,y,z,t, Axes=axes), rate_func=smooth, run_time=8))
         for ob in center_wrapping_objects:
             self.add(ob)
-            homotopies.append(center_only_homotopy(ob, homotopy= lambda x, y, z, t : wrap_homotopy(x,y,z,t, Axes=axes), rate_func=smooth, run_time=6))
+            homotopies.append(center_only_homotopy(ob, homotopy= lambda x, y, z, t : wrap_homotopy(x,y,z,t, Axes=axes), rate_func=smooth, run_time=8))
         grp = AnimationGroup(*homotopies, lag_ratio=0)
         self.wait(3)
         self.play(grp)
-        
-        #self.move_camera(phi = 0 * DEGREES, theta = -90 * DEGREES, zoom=0.65)
-        #spiral = ParametricFunction(lambda x : np.array([*wrap_homotopy(x,0,0,1)]), t_range=[1,4])
-        #self.add(spiral)
         self.wait()

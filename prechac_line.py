@@ -3,14 +3,18 @@ from manim import *
 import numpy as np
 
 """
-Generates a pair of lines
+Returns a pair of NumberLines depicting two jugglers juggling the same pattern in sync,
+in addition to a specified collection of throws to alter into a prechac pattern.
 Inputs:
 scene - A Scene object to render to
 throw_heights - list of periodic throw heights in the pattern
-endpoints - list of length 2, start and end of diagram
-prechac_positions - list of positions to turn into passes
+endpoints - list of integers of length 2, start and end beats of diagram
+prechac_positions - list of positions mod the period to turn into passes
 show_hands -- boolean, whether the hands are labeled or not
 line_spacing -- How far apart are the lines from each other vertically
+Returns:
+lines -- A list of NumberLine objects containing throws and throw height labels of the jugglign patterns
+selves_to_change -- A list of selves as CurvedArrows to change into passes
 """
 def siteswap_line(scene, throw_heights, endpoints, prechac_positions=[], show_hands=True, line_spacing=12):
     N = len(throw_heights)
@@ -58,17 +62,27 @@ def siteswap_line(scene, throw_heights, endpoints, prechac_positions=[], show_ha
     
     return lines, selves_to_change
     
+"""
+Performs an animation turning a collection of selves into passes, and generates the corresponding updaters to use for Prechac-like Transformations.
+Inputs:
+scene - A Scene object to render to
+throw_heights - list of periodic throw heights in the pattern
+endpoints - list of length 2, start and end of diagram
+prechac_positions - list of positions mod the period to turn into passes
+lines - list of 
+Returns:
+global_position -- ValueTracker which when modified appropriately translates one of the siteswap lines and the self throws, stretching the passes.
+period_tracker -- ValueTracker which when modified translates the endpoints of the passes only. In a Prechac transformation they are translated by the period, the length of throw_heights.
+"""
 def build_updaters(scene, throw_heights, prechac_positions, endpoints, lines, selves_to_change):
     N = len(throw_heights)
     passes = [[], []]
-    top_line = lines.submobjects[0]
-    bottom_line = lines.submobjects[1]
+    top_line = lines[0]
+    bottom_line = lines[1]
     scene.add(lines)
     for i in range(2):
         for throw in selves_to_change[i]:
             scene.add(throw)
-    #self.add(*lines.submobjects)
-    #self.play(lines.animate.shift(0.01*RIGHT))
     period_shifting_line = 1
     global_position = ValueTracker(0)
     period_tracker = ValueTracker(0)
@@ -80,7 +94,6 @@ def build_updaters(scene, throw_heights, prechac_positions, endpoints, lines, se
         updated_catch = arrow.catch_pos + period_multiplier*period_tracker.get_value()
         arrow.put_start_and_end_on(lines[arrow.throw_line].n2p(arrow.throw_pos), 
                                     lines[arrow.catch_line].n2p(updated_catch))
-        #lines.submobjects[arrow.throw_line].add_labels({arrow.start : })
 
     pass_colors = [BLUE, ORANGE]
     for i in range(2):
@@ -132,7 +145,10 @@ def build_updaters(scene, throw_heights, prechac_positions, endpoints, lines, se
     lines[0].add_updater(translation_updater)
     return global_position, period_tracker
 
-class siteswap_test(Scene):
+"""
+A scene that uses the preceding methods to explore Prechac-like transformations on an even period patten, 5313.
+"""
+class even_prechac_anim(Scene):
     def construct(self):
         throw_heights = [5, 3, 1, 3]
         N = len(throw_heights)
@@ -158,12 +174,15 @@ class siteswap_test(Scene):
         self.play(period_tracker.animate.set_value(-N), run_time = 3)
         self.wait(2)
         
+"""
+A Scene that uses the previous methods to animate the Prechac transformation on an odd period pattern, 423. 
+"""
 class odd_prechac_anim(Scene):
     def construct(self):
         throw_heights = [4, 2, 3]
         N = len(throw_heights)
         prechac_positions = [0]
-        endpoints = [-10, 10]
+        endpoints = [-12, 10]
         lines, selves_to_change = siteswap_line(self, throw_heights, endpoints, prechac_positions)
         global_position, period_tracker = build_updaters(self, throw_heights, prechac_positions, endpoints, lines, selves_to_change)
 
